@@ -20,7 +20,7 @@ services:
     depends_on:
       - mediamtx
     volumes:
-      - ./backend/cameras.json:/app/cameras.json:ro
+      - ./backend/cameras.json:/app/cameras.json
       - ./recordings:/recordings:ro
       - ./data:/data
       - ./web:/web:ro

@@ -54,27 +54,38 @@
     if (e.target === dlgBack) dlgBack.style.display = "none";
   });
   document.getElementById("dlgOk").onclick = async () => {
-    const name = document.getElementById("fName").value.trim();
-    const rtsp = document.getElementById("fRtsp").value.trim();
     const err = document.getElementById("dlgErr");
-    if (!name) { err.textContent = "نام دوربین را بنویس."; return; }
-    if (!rtsp.toLowerCase().startsWith("rtsp://")) {
-      err.textContent = "آدرس باید با rtsp:// شروع شود."; return;
-    }
-    err.textContent = "در حال افزودن و تست اتصال…";
-    const id = "cam" + Date.now().toString(36);
-    const r = await fetch("/api/cameras", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, name, rtsp, monitor: fMon.value })
-    });
-    if (!r.ok) {
+    const payload = {
+      name: document.getElementById("fName").value.trim(),
+      host: document.getElementById("fHost").value.trim(),
+      port: parseInt(document.getElementById("fPort").value.trim(), 10) || 554,
+      user: document.getElementById("fUser").value.trim(),
+      password: document.getElementById("fPass").value,
+      path: document.getElementById("fPath").value.trim(),
+      monitor: fMon.value
+    };
+    if (!payload.name) { err.textContent = "نام دوربین را بنویس."; return; }
+    if (!payload.host) { err.textContent = "IP دوربین را بنویس."; return; }
+    err.textContent = payload.path
+      ? "در حال افزودن و تست اتصال…"
+      : "در حال جستجوی خودکار مسیر استریم… (ممکن است تا ۳۰ ثانیه طول بکشد)";
+    document.getElementById("dlgOk").disabled = true;
+    try {
+      const r = await fetch("/api/cameras", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
       const d = await r.json().catch(() => ({}));
-      err.textContent = "خطا: " + (d.detail || r.status);
-      return;
+      if (!r.ok) {
+        err.textContent = "خطا: " + (d.detail || r.status);
+        return;
+      }
+      // Reload; the status dot will turn green once the stream is up.
+      location.reload();
+    } finally {
+      document.getElementById("dlgOk").disabled = false;
     }
-    // Reload; the status dot will turn green once the stream is up.
-    location.reload();
   };
 
   const cams = (data.cameras || []).filter(c => (c.monitor || "mon1") === mon);

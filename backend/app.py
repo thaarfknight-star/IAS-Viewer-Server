@@ -12,6 +12,8 @@ import threading
 import time
 import urllib.request
 import urllib.error
+import uuid
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit, quote
 
@@ -37,10 +39,87 @@ app = FastAPI(title="IAS-Viewer-Server")
 
 
 class Camera(BaseModel):
-    id: str
+    id: str = ""
     name: str
     rtsp: str = ""
     monitor: str = "mon1"
+
+
+class CameraIn(BaseModel):
+    """Add-camera payload: either a full rtsp URL, or host+credentials
+    with an optional path (empty path = auto-discover the stream path)."""
+    name: str
+    host: str = ""
+    port: int = 554
+    user: str = ""
+    password: str = ""
+    path: str = ""
+    rtsp: str = ""
+    monitor: str = "mon1"
+
+
+# Common RTSP paths, ordered by likelihood (Hikvision / Dahua / generic).
+PROBE_PATHS = [
+    "/Streaming/Channels/101",
+    "/Streaming/Channels/102",
+    "/cam/realmonitor?channel=1&subtype=0",
+    "/cam/realmonitor?channel=1&subtype=1",
+    "/live",
+    "/h264",
+    "/stream1",
+    "/onvif1",
+    "/media/video1",
+    "/axis-media/media.amp",
+    "/video",
+    "/",
+]
+
+
+def build_rtsp(host: str, port: int, user: str, password: str, path: str) -> str:
+    auth = ""
+    if user:
+        auth = f"{quote(user, safe='')}:{quote(password or '', safe='')}@"
+    if not path.startswith("/"):
+        path = "/" + path
+    return f"rtsp://{auth}{host}:{port}{path}"
+
+
+def _probe_one(name: str, url: str) -> str | None:
+    """Ask MediaMTX to pull a candidate URL; return it if the path goes ready."""
+    mtx_request("POST", "/v3/config/paths/create",
+                {"name": name, "source": url})
+    try:
+        for _ in range(12):  # ~6s
+            time.sleep(0.5)
+            paths = mtx_paths()
+            if paths is not None and paths.get(name, {}).get("ready"):
+                return url
+        return None
+    finally:
+        mtx_request("DELETE", f"/v3/config/paths/delete/{name}")
+
+
+def discover_rtsp(host: str, port: int, user: str,
+                  password: str) -> str | None:
+    """Try common stream paths in parallel via MediaMTX; return the first
+    working full RTSP URL, or None."""
+    token = uuid.uuid4().hex[:8]
+    found = None
+    with ThreadPoolExecutor(max_workers=4) as ex:
+        futs = [ex.submit(_probe_one, f"probe_{token}_{i}",
+                          build_rtsp(host, port, user, password, p))
+                for i, p in enumerate(PROBE_PATHS)]
+        for fut in as_completed(futs):
+            try:
+                r = fut.result()
+            except Exception:
+                r = None
+            if r:
+                found = r
+                break
+        for f in futs:
+            f.cancel()
+    return found
 
 
 def load_cams() -> dict:
@@ -197,24 +276,40 @@ def list_cameras():
 
 
 @app.post("/api/cameras")
-def add_camera(cam: Camera, authorization: str = Header(default="")):
+def add_camera(cam: CameraIn, authorization: str = Header(default="")):
     check_auth(authorization)
-    cam.rtsp = normalize_rtsp(cam.rtsp)
-    if not cam.id or not cam.id.replace("_", "").replace("-", "").isalnum():
-        raise HTTPException(status_code=400,
-                            detail="camera id must be alphanumeric")
+    name = (cam.name or "").strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="نام دوربین لازم است")
+    rtsp = (cam.rtsp or "").strip()
+    if not rtsp:
+        host = (cam.host or "").strip()
+        if not host:
+            raise HTTPException(status_code=400,
+                                detail="IP دوربین یا آدرس RTSP لازم است")
+        if cam.path and cam.path.strip():
+            rtsp = build_rtsp(host, cam.port, cam.user, cam.password,
+                              cam.path.strip())
+        else:
+            rtsp = discover_rtsp(host, cam.port, cam.user, cam.password)
+            if not rtsp:
+                raise HTTPException(
+                    status_code=400,
+                    detail="مسیر استریم پیدا نشد — IP/یوزر/پسورد را چک کن "
+                           "یا مسیر را دستی وارد کن")
+    rtsp = normalize_rtsp(rtsp)
+    cam_id = "cam" + uuid.uuid4().hex[:8]
     data = load_cams()
-    if any(c["id"] == cam.id for c in data["cameras"]):
-        raise HTTPException(status_code=409, detail="camera id already exists")
-    data["cameras"].append(cam.model_dump())
+    data["cameras"].append({"id": cam_id, "name": name, "rtsp": rtsp,
+                            "monitor": cam.monitor or "mon1"})
     save_cams(data)
     # Create the MediaMTX path right away so the camera connects immediately
     # (no restart needed). Failures are retried by the background sync.
     try:
-        mtx_ensure_path(cam.id, cam.rtsp)
+        mtx_ensure_path(cam_id, rtsp)
     except Exception:
         pass
-    return {"ok": True}
+    return {"ok": True, "id": cam_id}
 
 
 @app.delete("/api/cameras/{cam_id}")

@@ -29,4 +29,7 @@ footer{text-align:center;padding:6px;color:#5b6478;font-size:11px}
 .dlg-actions{display:flex;gap:8px;justify-content:flex-start;margin-top:6px}
 .dlg-actions button{background:#2563eb;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-family:inherit;font-size:14px;cursor:pointer}
 .dlg-actions button.ghost{background:transparent;border:1px solid #2c3648;color:#aeb7cc}
+.row2{display:flex;gap:8px}
+.row2 label{flex:1}
+.row2 .w-port{max-width:84px;flex:none}
 .tile .del{background:rgba(239,68,68,.25)!important}
