@@ -11,7 +11,9 @@ import os
 import threading
 import time
 import urllib.request
+import urllib.error
 from pathlib import Path
+from urllib.parse import urlsplit, urlunsplit, quote
 
 from fastapi import FastAPI, HTTPException, Header
 from fastapi.responses import FileResponse
@@ -69,6 +71,63 @@ def mtx_paths() -> dict | None:
         return None
 
 
+def mtx_request(method: str, path: str, data: dict | None = None):
+    """Call the MediaMTX config API. Returns (status, body) or (None, None)."""
+    body = json.dumps(data).encode() if data is not None else None
+    req = urllib.request.Request(
+        MTX_API + path, data=body, method=method,
+        headers={"Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            raw = resp.read()
+            return resp.status, (json.loads(raw) if raw else None)
+    except urllib.error.HTTPError as e:
+        return e.code, None
+    except Exception:
+        return None, None
+
+
+def normalize_rtsp(url: str) -> str:
+    """URL-encode username/password inside an RTSP URL.
+
+    Many cameras use passwords with special chars (@ # : / %), which break
+    the URL if inserted raw — same fix as the desktop app's build_rtsp_url.
+    """
+    try:
+        p = urlsplit(url.strip())
+        if p.username:
+            netloc = f"{quote(p.username, safe='')}:{quote(p.password or '', safe='')}@{p.hostname or ''}"
+            if p.port:
+                netloc += f":{p.port}"
+            return urlunsplit((p.scheme, netloc, p.path, p.query, p.fragment))
+    except Exception:
+        pass
+    return url.strip()
+
+
+def mtx_ensure_path(cam_id: str, rtsp: str) -> None:
+    """Create the MediaMTX path (pull mode) so the camera connects now."""
+    if not rtsp:
+        return
+    mtx_request("POST", "/v3/config/paths/create",
+                {"name": cam_id, "source": rtsp})
+
+
+def mtx_delete_path(cam_id: str) -> None:
+    mtx_request("DELETE", f"/v3/config/paths/delete/{cam_id}")
+
+
+def sync_paths() -> None:
+    """Re-create path configs for all cameras (covers restarts)."""
+    paths = mtx_paths()
+    if paths is None:
+        return
+    for cam in load_cams().get("cameras", []):
+        if cam.get("rtsp") and cam["id"] not in paths:
+            mtx_request("POST", "/v3/config/paths/create",
+                        {"name": cam["id"], "source": cam["rtsp"]})
+
+
 def log_event(camera: str, event: str) -> None:
     try:
         DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -87,11 +146,15 @@ def log_event(camera: str, event: str) -> None:
 
 
 def _poller() -> None:
-    """Watch camera up/down transitions and log them as events."""
+    """Watch camera up/down transitions and log them as events.
+
+    Also re-syncs MediaMTX path configs (covers MediaMTX restarts).
+    """
     prev: dict[str, bool] = {}
     while True:
         time.sleep(15)
         try:
+            sync_paths()
             paths = mtx_paths()
             if paths is None:
                 continue
@@ -107,6 +170,7 @@ def _poller() -> None:
 
 @app.on_event("startup")
 def _start_poller() -> None:
+    sync_paths()  # immediate, so cameras connect right after a restart
     threading.Thread(target=_poller, daemon=True).start()
 
 
@@ -135,11 +199,21 @@ def list_cameras():
 @app.post("/api/cameras")
 def add_camera(cam: Camera, authorization: str = Header(default="")):
     check_auth(authorization)
+    cam.rtsp = normalize_rtsp(cam.rtsp)
+    if not cam.id or not cam.id.replace("_", "").replace("-", "").isalnum():
+        raise HTTPException(status_code=400,
+                            detail="camera id must be alphanumeric")
     data = load_cams()
     if any(c["id"] == cam.id for c in data["cameras"]):
         raise HTTPException(status_code=409, detail="camera id already exists")
     data["cameras"].append(cam.model_dump())
     save_cams(data)
+    # Create the MediaMTX path right away so the camera connects immediately
+    # (no restart needed). Failures are retried by the background sync.
+    try:
+        mtx_ensure_path(cam.id, cam.rtsp)
+    except Exception:
+        pass
     return {"ok": True}
 
 
@@ -149,6 +223,10 @@ def delete_camera(cam_id: str, authorization: str = Header(default="")):
     data = load_cams()
     data["cameras"] = [c for c in data["cameras"] if c["id"] != cam_id]
     save_cams(data)
+    try:
+        mtx_delete_path(cam_id)
+    except Exception:
+        pass
     return {"ok": True}
 
 

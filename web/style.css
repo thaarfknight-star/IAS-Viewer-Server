@@ -20,3 +20,13 @@ header h1 span{color:#8b93a7;font-weight:400;font-size:14px}
 .rec a{color:#7aa2ff}
 .rec video{width:100%;max-height:70vh;background:#000;border-radius:10px}
 footer{text-align:center;padding:6px;color:#5b6478;font-size:11px}
+.dlg-back{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:50}
+.dlg{background:#141a26;border:1px solid #2c3648;border-radius:12px;padding:20px;width:min(420px,92vw)}
+.dlg h3{margin-bottom:12px;font-size:16px}
+.dlg label{display:block;margin-bottom:10px;font-size:13px;color:#aeb7cc}
+.dlg input,.dlg select{width:100%;margin-top:4px;background:#1a2130;color:#e8e8e8;border:1px solid #2c3648;border-radius:8px;padding:8px 10px;font-family:inherit;font-size:14px}
+.dlg .err{color:#ef4444;font-size:12px;min-height:18px}
+.dlg-actions{display:flex;gap:8px;justify-content:flex-start;margin-top:6px}
+.dlg-actions button{background:#2563eb;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-family:inherit;font-size:14px;cursor:pointer}
+.dlg-actions button.ghost{background:transparent;border:1px solid #2c3648;color:#aeb7cc}
+.tile .del{background:rgba(239,68,68,.25)!important}

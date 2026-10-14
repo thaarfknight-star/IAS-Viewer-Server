@@ -12,11 +12,26 @@
   <h1>IAS Viewer <span>— اتاق مانیتورینگ</span></h1>
   <div class="controls">
     <select id="monitorSel" title="مانیتور"></select>
+    <button id="addCam" title="افزودن دوربین">＋ افزودن دوربین</button>
     <a class="btn" href="recordings.html">🎞 ضبط‌شده‌ها</a>
     <button id="fsAll" title="تمام‌صفحه">⛶</button>
   </div>
 </header>
 <main id="grid"></main>
+
+<div id="dlgBack" class="dlg-back" style="display:none">
+  <div class="dlg">
+    <h3>افزودن دوربین</h3>
+    <label>نام دوربین<input id="fName" placeholder="مثلاً: ورودی اصلی"></label>
+    <label>آدرس RTSP<input id="fRtsp" dir="ltr" placeholder="rtsp://admin:pass@192.168.1.10:554/stream1"></label>
+    <label>مانیتور<select id="fMon"></select></label>
+    <p id="dlgErr" class="err"></p>
+    <div class="dlg-actions">
+      <button id="dlgOk">افزودن و تست اتصال</button>
+      <button id="dlgCancel" class="ghost">انصراف</button>
+    </div>
+  </div>
+</div>
 <footer><small>IAS-Viewer-Server — AGPL-3.0</small></footer>
 <script src="app.js"></script>
 </body>

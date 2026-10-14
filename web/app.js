@@ -34,6 +34,49 @@
     document.documentElement.requestFullscreen?.();
   };
 
+  // ---- Add-camera dialog ----
+  const dlgBack = document.getElementById("dlgBack");
+  const fMon = document.getElementById("fMon");
+  Object.entries(data.monitors || {}).forEach(([id, name]) => {
+    const o = document.createElement("option");
+    o.value = id; o.textContent = name; fMon.appendChild(o);
+  });
+  fMon.value = mon;
+  document.getElementById("addCam").onclick = () => {
+    document.getElementById("dlgErr").textContent = "";
+    dlgBack.style.display = "flex";
+    document.getElementById("fName").focus();
+  };
+  document.getElementById("dlgCancel").onclick = () => {
+    dlgBack.style.display = "none";
+  };
+  dlgBack.addEventListener("click", e => {
+    if (e.target === dlgBack) dlgBack.style.display = "none";
+  });
+  document.getElementById("dlgOk").onclick = async () => {
+    const name = document.getElementById("fName").value.trim();
+    const rtsp = document.getElementById("fRtsp").value.trim();
+    const err = document.getElementById("dlgErr");
+    if (!name) { err.textContent = "نام دوربین را بنویس."; return; }
+    if (!rtsp.toLowerCase().startsWith("rtsp://")) {
+      err.textContent = "آدرس باید با rtsp:// شروع شود."; return;
+    }
+    err.textContent = "در حال افزودن و تست اتصال…";
+    const id = "cam" + Date.now().toString(36);
+    const r = await fetch("/api/cameras", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, name, rtsp, monitor: fMon.value })
+    });
+    if (!r.ok) {
+      const d = await r.json().catch(() => ({}));
+      err.textContent = "خطا: " + (d.detail || r.status);
+      return;
+    }
+    // Reload; the status dot will turn green once the stream is up.
+    location.reload();
+  };
+
   const cams = (data.cameras || []).filter(c => (c.monitor || "mon1") === mon);
   if (!cams.length) {
     grid.innerHTML = '<p style="color:#8b93a7">دوربینی برای این مانیتور تعریف نشده است.</p>';
@@ -45,9 +88,14 @@
     tile.className = "tile";
     tile.dataset.cam = cam.id;
     tile.innerHTML = `<video muted playsinline></video>
-      <div class="label"><span><i class="dot"></i><b></b></span><button>⛶</button></div>`;
+      <div class="label"><span><i class="dot"></i><b></b></span><span><button class="del" title="حذف دوربین">✕</button><button title="تمام‌صفحه">⛶</button></span></div>`;
     tile.querySelector("b").textContent = cam.name || cam.id;
-    tile.querySelector("button").onclick = () => tile.requestFullscreen?.();
+    tile.querySelector("button[title='تمام‌صفحه']").onclick = () => tile.requestFullscreen?.();
+    tile.querySelector(".del").onclick = async () => {
+      if (!confirm(`دوربین «${cam.name || cam.id}» حذف شود؟`)) return;
+      await fetch("/api/cameras/" + encodeURIComponent(cam.id), { method: "DELETE" });
+      location.reload();
+    };
     grid.appendChild(tile);
 
     const video = tile.querySelector("video");
