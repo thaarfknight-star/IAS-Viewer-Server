@@ -8,7 +8,16 @@
 
   const res = await fetch("/api/cameras");
   const data = await res.json();
-  const hlsBase = (data.hls_base || "http://localhost:8888").replace(/\/$/, "");
+  // If the configured HLS host is localhost, use the page's own host instead,
+  // so monitors opening the dashboard via the server's LAN IP just work.
+  let hlsBase = (data.hls_base || "http://localhost:8888").replace(/\/$/, "");
+  try {
+    const u = new URL(hlsBase);
+    if (u.hostname === "localhost" || u.hostname === "127.0.0.1") {
+      u.hostname = location.hostname;
+      hlsBase = u.toString().replace(/\/$/, "");
+    }
+  } catch (e) { /* keep hlsBase as-is */ }
 
   Object.entries(data.monitors || {}).forEach(([id, name]) => {
     const o = document.createElement("option");
