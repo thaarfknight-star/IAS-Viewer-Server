@@ -18,7 +18,9 @@ OUT = ROOT / "mediamtx.yml"
 
 data = json.loads(CAM_FILE.read_text(encoding="utf-8"))
 
-lines = ["paths:"]
+lines = ["paths:",
+         "  # on-demand paths (simulator, ad-hoc publishers)",
+         "  all_others: {}"]
 for cam in data.get("cameras", []):
     cid = re.sub(r"[^a-zA-Z0-9_-]", "_", cam["id"])
     lines.append(f"  {cid}:")
