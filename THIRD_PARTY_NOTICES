@@ -1,0 +1,28 @@
+THIRD-PARTY NOTICES — IAS-Viewer-Server
+=========================================
+
+This project bundles / depends on the following free software:
+
+1. MediaMTX (github.com/bluenviron/mediamtx)
+   License: MIT
+   Role: RTSP/ONVIF ingest and HLS/WebRTC relay. Run as a separate
+   container/process; not linked into this project's code.
+
+2. FastAPI (github.com/fastapi/fastapi)
+   License: MIT
+   Role: backend HTTP API framework.
+
+3. Uvicorn (github.com/encode/uvicorn)
+   License: BSD-3-Clause
+   Role: ASGI server running the backend.
+
+4. Pydantic (github.com/pydantic/pydantic)
+   License: MIT
+   Role: request validation in the backend.
+
+5. hls.js (github.com/video-dev/hls.js) — loaded from CDN in web/app.js
+   License: Apache-2.0
+   Role: HLS playback in browsers without native HLS support.
+
+IAS-Viewer-Server itself is licensed under the GNU Affero General Public
+License v3.0 (see LICENSE, added by LAWagent).

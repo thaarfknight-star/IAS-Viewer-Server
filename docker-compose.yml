@@ -1,0 +1,29 @@
+services:
+  mediamtx:
+    image: bluenviron/mediamtx:latest
+    container_name: ivs-mediamtx
+    restart: unless-stopped
+    volumes:
+      - ./mediamtx.yml:/mediamtx.yml:ro
+    ports:
+      - "8554:8554"   # RTSP
+      - "8888:8888"   # HLS
+      - "8889:8889"   # WebRTC
+      - "8189:8189"   # MediaMTX API
+    command: ["/mediamtx", "/mediamtx.yml"]
+
+  backend:
+    build: ./backend
+    container_name: ivs-backend
+    restart: unless-stopped
+    depends_on:
+      - mediamtx
+    volumes:
+      - ./backend/cameras.json:/app/cameras.json:ro
+      - ./web:/web:ro
+    environment:
+      IVS_CAMERAS: /app/cameras.json
+      IVS_HLS_BASE: http://HOST_IP:8888
+      # IVS_API_TOKEN: خودت یک توکن تصادفی بساز و اینجا بگذار
+    ports:
+      - "8000:8000"

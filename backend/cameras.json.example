@@ -1,0 +1,1 @@
+{"cameras":[{"id":"cam1","monitor":"mon1","name":"ورودی اصلی","rtsp":"rtsp://USER:PASS@192.168.1.10:554/stream1"},{"id":"cam2","monitor":"mon2","name":"پارکینگ","rtsp":"rtsp://USER:PASS@192.168.1.11:554/stream1"}],"monitors":{"mon1":"مانیتور ۱ — ورودی","mon2":"مانیتور ۲ — محوطه"}}
