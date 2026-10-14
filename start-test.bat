@@ -8,7 +8,7 @@ REM Clear stale containers (e.g. from another folder running the same stack)
 docker rm -f ivs-mediamtx ivs-backend ivs-sim >nul 2>&1
 echo Starting IAS-Viewer-Server with SIMULATED camera...
 echo (first run downloads images - please wait a few minutes)
-docker compose --profile sim up -d
+docker compose --profile sim up -d --build
 if errorlevel 1 (
   echo.
   echo Failed to start. See the error above.
