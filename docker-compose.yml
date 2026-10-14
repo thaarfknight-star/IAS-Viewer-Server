@@ -5,6 +5,7 @@ services:
     restart: unless-stopped
     volumes:
       - ./mediamtx.yml:/mediamtx.yml:ro
+      - ./recordings:/recordings
     ports:
       - "8554:8554"   # RTSP
       - "8888:8888"   # HLS
@@ -20,12 +21,27 @@ services:
       - mediamtx
     volumes:
       - ./backend/cameras.json:/app/cameras.json:ro
+      - ./recordings:/recordings:ro
+      - ./data:/data
       - ./web:/web:ro
     environment:
       IVS_CAMERAS: /app/cameras.json
+      IVS_DATA_DIR: /data
+      IVS_RECORDINGS_DIR: /recordings
+      IVS_MEDIAMTX_API: http://mediamtx:8189
       # برای تست روی همین سیستم localhost کافی است؛ اگر مانیتورها سیستم‌های
       # دیگری در شبکه هستند، آی‌پی LAN سرور را بگذار، مثلاً http://192.168.1.50:8888
       IVS_HLS_BASE: http://localhost:8888
       # IVS_API_TOKEN: خودت یک توکن تصادفی بساز و اینجا بگذار
     ports:
       - "8000:8000"
+
+  # Simulated camera (ffmpeg testsrc) for testing without hardware.
+  # Run with: docker compose --profile sim up -d   (or start-test.bat)
+  sim:
+    build: ./simulator
+    container_name: ivs-sim
+    profiles: ["sim"]
+    restart: unless-stopped
+    depends_on:
+      - mediamtx

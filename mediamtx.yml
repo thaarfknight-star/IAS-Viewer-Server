@@ -13,6 +13,12 @@ hlsPartDuration: 200ms
 
 webrtc: yes
 
+# Recording: every published path is recorded in 60s mp4 segments.
+record: yes
+recordPath: /recordings/%path/%Y-%m-%d_%H-%M-%S.mp4
+recordFormat: fmp4
+recordSegmentDuration: 60s
+
 # --- generated paths below (tools/gen_mediamtx.py) ---
 
 paths:

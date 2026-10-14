@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IAS Viewer — ضبط‌شده‌ها</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>IAS Viewer <span>— ضبط‌شده‌ها</span></h1>
+  <div class="controls">
+    <a class="btn" href="index.html">📺 پخش زنده</a>
+  </div>
+</header>
+<main class="rec">
+  <div id="playerWrap" style="display:none">
+    <video id="player" controls></video>
+    <p id="playerName" style="margin:6px 0;color:#8b93a7;font-size:13px"></p>
+  </div>
+  <div id="list"><p style="color:#8b93a7">در حال بارگذاری…</p></div>
+  <h2>رویدادها</h2>
+  <div id="events"><p style="color:#8b93a7">در حال بارگذاری…</p></div>
+</main>
+<script>
+(async function () {
+  const fmtSize = b => b > 1048576 ? (b / 1048576).toFixed(1) + " MB" : Math.round(b / 1024) + " KB";
+  const fmtTs = ts => new Date(ts * 1000).toLocaleString("fa-IR");
+
+  const r = await fetch("/api/recordings");
+  const data = await r.json();
+  const recs = data.recordings || {};
+  const list = document.getElementById("list");
+  const names = Object.keys(recs);
+  if (!names.length) {
+    list.innerHTML = '<p style="color:#8b93a7">هنوز فایل ضبط‌شده‌ای نیست.</p>';
+  } else {
+    list.innerHTML = names.map(cam =>
+      `<h2>${cam}</h2><table>` + recs[cam].map(f =>
+        `<tr><td><a href="#" data-cam="${cam}" data-path="${encodeURIComponent(f.path)}" data-name="${f.name}">${f.name}</a></td>` +
+        `<td>${fmtSize(f.size)}</td><td>${fmtTs(f.mtime)}</td></tr>`
+      ).join("") + "</table>"
+    ).join("");
+    list.querySelectorAll("a").forEach(a => {
+      a.onclick = ev => {
+        ev.preventDefault();
+        const w = document.getElementById("playerWrap");
+        w.style.display = "block";
+        document.getElementById("player").src =
+          `/api/recordings/${encodeURIComponent(a.dataset.cam)}/${a.dataset.path}`;
+        document.getElementById("playerName").textContent = a.dataset.name;
+        w.scrollIntoView();
+      };
+    });
+  }
+
+  const er = await fetch("/api/events");
+  const ed = await er.json();
+  const evs = ed.events || [];
+  document.getElementById("events").innerHTML = evs.length
+    ? "<table>" + evs.map(e =>
+        `<tr><td>${e.camera}</td><td>${e.event === "up" ? "🟢 وصل شد" : "🔴 قطع شد"}</td><td>${fmtTs(e.ts)}</td></tr>`
+      ).join("") + "</table>"
+    : '<p style="color:#8b93a7">رویدادی ثبت نشده است.</p>';
+})();
+</script>
+</body>
+</html>

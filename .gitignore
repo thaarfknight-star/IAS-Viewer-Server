@@ -1,4 +1,7 @@
 .env
 backend/cameras.json
+backend/cameras.json.bak
+recordings/
+data/
 __pycache__/
 *.pyc

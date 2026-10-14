@@ -43,9 +43,10 @@
   cams.forEach(cam => {
     const tile = document.createElement("div");
     tile.className = "tile";
+    tile.dataset.cam = cam.id;
     tile.innerHTML = `<video muted playsinline></video>
-      <div class="label"><span></span><button>⛶</button></div>`;
-    tile.querySelector("span").textContent = cam.name || cam.id;
+      <div class="label"><span><i class="dot"></i><b></b></span><button>⛶</button></div>`;
+    tile.querySelector("b").textContent = cam.name || cam.id;
     tile.querySelector("button").onclick = () => tile.requestFullscreen?.();
     grid.appendChild(tile);
 
@@ -60,4 +61,20 @@
     }
     video.play().catch(() => {});
   });
+
+  // Live status dots, refreshed every 10s.
+  async function refreshStatus() {
+    try {
+      const r = await fetch("/api/status");
+      const s = await r.json();
+      const states = s.cameras || {};
+      document.querySelectorAll(".tile").forEach(t => {
+        const dot = t.querySelector(".dot");
+        const st = states[t.dataset.cam];
+        dot.className = "dot" + (!st ? "" : st.ready ? " on" : " off");
+      });
+    } catch (e) { /* keep previous dots */ }
+  }
+  refreshStatus();
+  setInterval(refreshStatus, 10000);
 })();
